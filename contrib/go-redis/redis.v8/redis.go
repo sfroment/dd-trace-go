@@ -35,6 +35,33 @@ type params struct {
 	config *clientConfig
 }
 
+// NewClusterClient returns a new Client that is traced with the default tracer under
+// the service name "redis".
+func NewClusterClient(opt *redis.ClusterOptions, opts ...ClientOption) redis.UniversalClient {
+	cfg := new(clientConfig)
+	defaults(cfg)
+	for _, fn := range opts {
+		fn(cfg)
+	}
+	var host, port string
+	for _, addr := range opt.Addrs {
+		tmpHost, tmpPort, err := net.SplitHostPort(addr)
+		if err == nil {
+			host += tmpHost + ","
+			port += tmpPort + ","
+		}
+	}
+	params := &params{
+		host:   host,
+		port:   port,
+		config: cfg,
+	}
+	client := redis.NewClusterClient(opt)
+	hook := &dataDogHook{params: params}
+	client.AddHook(hook)
+	return client
+}
+
 // NewClient returns a new Client that is traced with the default tracer under
 // the service name "redis".
 func NewClient(opt *redis.Options, opts ...ClientOption) redis.UniversalClient {
